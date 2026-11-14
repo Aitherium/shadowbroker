@@ -57,7 +57,7 @@ import {
   type ResizeDir,
   type Viewport,
 } from '@/lib/panelLayout';
-import { usePanelWorkspace } from './PanelWorkspace';
+import { MOBILE_BAR_HEIGHT, usePanelWorkspace } from './PanelWorkspace';
 import { PopoutPortal, openPanelPopout } from './PopoutWindow';
 
 export interface FloatingPanelProps {
@@ -360,6 +360,43 @@ export default function FloatingPanel({
     const maxH = dockEl ? dockEl.getBoundingClientRect().height : viewport.height;
     runGesture({ kind: 'dock-resize', sy: e.clientY, startH: box.height, maxH }, e.pointerId, true);
   };
+
+  // ── mobile: one panel at a time, as a bottom sheet over the map ─────────
+  // Docks and floats cannot fit a phone; every panel stays mounted (parked)
+  // and the MobilePanelBar picks which one the sheet shows. Desktop layout
+  // state (closed/minimized/rects) is left untouched for wide screens.
+  if (ws.isMobile && bodyHost && !state.poppedOut) {
+    const active = ws.mobileActive === id;
+    const sheet = active ? (
+      <div
+        data-panel-id={id}
+        data-panel-mode="mobile-sheet"
+        className="fixed left-0 right-0 z-[8700] flex flex-col bg-[#03080c]/95 border-t border-cyan-800/60 shadow-[0_-8px_32px_rgba(0,0,0,0.7)]"
+        style={{ bottom: MOBILE_BAR_HEIGHT, height: '58dvh', direction: 'ltr' }}
+      >
+        <div className="flex items-center gap-2 h-10 shrink-0 px-3 border-b border-cyan-900/50">
+          <span className="flex-1 min-w-0 truncate text-[11px] font-mono tracking-[0.2em] text-cyan-400 font-bold">{title}</span>
+          <button
+            type="button"
+            aria-label={`Close ${title}`}
+            onClick={() => ws.setMobileActive(null)}
+            className="w-9 h-9 flex items-center justify-center text-cyan-500 active:bg-cyan-950/60"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div ref={attachBody} className="flex-1 min-h-0 flex flex-col overflow-auto styled-scrollbar" />
+      </div>
+    ) : (
+      <div ref={attachBody} style={{ display: 'none' }} />
+    );
+    return (
+      <>
+        {createPortal(sheet, document.body)}
+        {createPortal(children, bodyHost)}
+      </>
+    );
+  }
 
   if (state.closed || !bodyHost) return null;
 

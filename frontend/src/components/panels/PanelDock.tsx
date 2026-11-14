@@ -17,7 +17,7 @@ import {
   setDockWidth,
   type DockSide,
 } from '@/lib/panelLayout';
-import { usePanelWorkspace } from './PanelWorkspace';
+import { MOBILE_BAR_HEIGHT, usePanelWorkspace } from './PanelWorkspace';
 
 const SLIDE_GAP = 40;
 
@@ -32,7 +32,7 @@ export interface PanelDockProps {
 }
 
 export function PanelDock({ side, open, className = '', children }: PanelDockProps) {
-  const { layout, setDockEl, update, viewport } = usePanelWorkspace();
+  const { layout, setDockEl, update, viewport, isMobile } = usePanelWorkspace();
   const width = layout.docks[side].width;
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const w = liveWidth ?? width;
@@ -70,6 +70,17 @@ export function PanelDock({ side, open, className = '', children }: PanelDockPro
   };
 
   const hiddenX = side === 'left' ? -(w + SLIDE_GAP) : w + SLIDE_GAP;
+
+  // Phone width: no columns. Panels live in the mobile sheet; the right
+  // dock's pinned controls (search, settings) become a full-width top strip.
+  if (isMobile) {
+    if (!children) return null;
+    return (
+      <div className="absolute left-2 right-2 top-14 z-[210] pointer-events-auto hud-zone flex flex-col gap-2" data-panel-dock={side}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -238,5 +249,39 @@ export function PanelsMenu({ className = '' }: { className?: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Phone-width tab bar: one button per registered panel. Tapping opens that
+ * panel as the bottom sheet (tap again or X to return to the map).
+ */
+export function MobilePanelBar() {
+  const { isMobile, definitions, mobileActive, setMobileActive } = usePanelWorkspace();
+  if (!isMobile) return null;
+  return (
+    <nav
+      aria-label="Panels"
+      className="fixed left-0 right-0 bottom-0 z-[8800] flex items-stretch gap-1 px-1 overflow-x-auto bg-[#03080c]/95 border-t border-cyan-900/60 hud-zone"
+      style={{ height: MOBILE_BAR_HEIGHT, paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      {definitions.map((d) => {
+        const on = mobileActive === d.id;
+        return (
+          <button
+            key={d.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => setMobileActive(on ? null : d.id)}
+            className={`shrink-0 px-3 my-1.5 text-[10px] font-mono tracking-[0.15em] font-bold border whitespace-nowrap ${
+              on ? 'text-cyan-200 border-cyan-400 bg-cyan-900/50' : 'text-cyan-600 border-cyan-900/60 active:bg-cyan-950/60'
+            }`}
+          >
+            {d.title.split(' — ')[0]}
+          </button>
+        );
+      })}
+    </nav>
   );
 }

@@ -62,7 +62,17 @@ export interface PanelWorkspaceValue {
   measureObstacles: (exceptId?: string) => { floats: Rect[]; docks: Rect[] };
   /** Rearrange every visible floating panel inside the free area. */
   arrangeFloats: (kind: 'tile' | 'cascade') => number;
+  /** Phone-width viewport: panels render one at a time as a bottom sheet. */
+  isMobile: boolean;
+  /** Panel shown in the mobile sheet (null = map only). */
+  mobileActive: string | null;
+  setMobileActive: (id: string | null) => void;
 }
+
+/** Below this width the docked/floating HUD cannot fit; use the mobile sheet. */
+export const MOBILE_BREAKPOINT = 768;
+/** Height of the mobile panel tab bar; the sheet sits directly above it. */
+export const MOBILE_BAR_HEIGHT = 48;
 
 const PanelWorkspaceContext = createContext<PanelWorkspaceValue | null>(null);
 
@@ -84,6 +94,7 @@ export function PanelWorkspaceProvider({ children }: { children: React.ReactNode
   const [defs, setDefs] = useState<Record<string, PanelDefinition>>({});
   const [dockEls, setDockEls] = useState<Record<DockSide, HTMLElement | null>>({ left: null, right: null });
   const [floatEl, setFloatEl] = useState<HTMLElement | null>(null);
+  const [mobileActive, setMobileActive] = useState<string | null>(null);
 
   useEffect(() => {
     setLayout(loadPanelLayout());
@@ -198,8 +209,13 @@ export function PanelWorkspaceProvider({ children }: { children: React.ReactNode
     [measureFreeArea],
   );
 
+  const isMobile = hydrated && viewport.width < MOBILE_BREAKPOINT;
+
   const value = useMemo<PanelWorkspaceValue>(
     () => ({
+      isMobile,
+      mobileActive,
+      setMobileActive,
       layout,
       viewport,
       definitions,
@@ -216,6 +232,8 @@ export function PanelWorkspaceProvider({ children }: { children: React.ReactNode
       arrangeFloats,
     }),
     [
+      isMobile,
+      mobileActive,
       layout,
       viewport,
       definitions,

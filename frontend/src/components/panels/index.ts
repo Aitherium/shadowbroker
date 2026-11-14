@@ -15,4 +15,4 @@
 export { default as FloatingPanel } from './FloatingPanel';
 export type { FloatingPanelProps } from './FloatingPanel';
 export { PanelWorkspaceProvider, usePanelWorkspace, useDockWidth } from './PanelWorkspace';
-export { PanelDock, PanelFloatLayer, PanelsMenu } from './PanelDock';
+export { MobilePanelBar, PanelDock, PanelFloatLayer, PanelsMenu } from './PanelDock';
