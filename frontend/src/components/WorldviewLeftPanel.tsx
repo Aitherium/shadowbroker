@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import RoadCorridorLayerControls from '@/components/RoadCorridorLayerControls';
 import CivicCoverageBadge from '@/components/CivicCoverageBadge';
+import CivicZoomHint from '@/components/CivicZoomHint';
 import TwinTownChip from '@/components/TwinTownChip';
 import { API_BASE } from '@/lib/api';
 import { useLiveUamapScraperOptIn } from '@/hooks/useLiveUamapScraperOptIn';
@@ -64,6 +65,7 @@ import { extractGtAlerts } from '@/lib/gtAlerts';
 import {
   getDefaultLayerSectionExpanded,
   loadLayerSectionExpanded,
+  orderLayerSections,
   saveLayerSectionExpanded,
 } from '@/lib/layerPreferences';
 import { gtLeanLayerWarning, useRuntimeProfile } from '@/hooks/useRuntimeProfile';
@@ -760,7 +762,7 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
   gibsOpacity?: number;
   setGibsOpacity?: (o: number) => void;
   onEntityClick?: (entity: SelectedEntity) => void;
-  onFlyTo?: (lat: number, lng: number) => void;
+  onFlyTo?: (lat: number, lng: number, zoom?: number) => void;
   trackedSdr?: KiwiSDR | null;
   setTrackedSdr?: (sdr: KiwiSDR | null) => void;
   trackedScanner?: Scanner | null;
@@ -1370,27 +1372,6 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
           icon: Server,
         },
         {
-          id: 'civic_alpr',
-          name: t('layers.civicAlpr'),
-          source: 'AitherOS Civic · OSM/DeFlock',
-          count: null,
-          icon: Radar,
-        },
-        {
-          id: 'civic_datacenters',
-          name: t('layers.civicDatacenters'),
-          source: 'AitherOS Civic · OSM',
-          count: null,
-          icon: Server,
-        },
-        {
-          id: 'civic_projects',
-          name: t('layers.civicProjects'),
-          source: 'USAspending.gov · place of performance',
-          count: null,
-          icon: Truck,
-        },
-        {
           id: 'internet_outages',
           name: t('layers.internetOutages'),
           source: 'IODA + RIPE Atlas',
@@ -1453,6 +1434,27 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
       label: t('layers.civic').toUpperCase(),
       icon: Landmark,
       layers: [
+        {
+          id: 'civic_alpr',
+          name: t('layers.civicAlpr'),
+          source: 'AitherOS Civic · OSM/DeFlock',
+          count: null,
+          icon: Radar,
+        },
+        {
+          id: 'civic_datacenters',
+          name: t('layers.civicDatacenters'),
+          source: 'AitherOS Civic · OSM',
+          count: null,
+          icon: Server,
+        },
+        {
+          id: 'civic_projects',
+          name: t('layers.civicProjects'),
+          source: 'USAspending.gov · place of performance',
+          count: null,
+          icon: Truck,
+        },
         {
           id: 'civic_representatives',
           name: t('layers.civicRepresentatives'),
@@ -1672,7 +1674,7 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
   const [layerQuery, setLayerQuery] = useState('');
   const [onlyActiveLayers, setOnlyActiveLayers] = useState(false);
   const layerFilterOn = isLayerFilterActive({ query: layerQuery, onlyActive: onlyActiveLayers });
-  const visibleSections = filterLayerSections(sections, {
+  const visibleSections = filterLayerSections(orderLayerSections(sections), {
     query: layerQuery,
     onlyActive: onlyActiveLayers,
     activeLayers: activeLayers as unknown as Record<string, unknown>,
@@ -2073,6 +2075,13 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                           />
                         </button>
                       </div>
+
+                      {section.id === 'civic' && (
+                        <CivicZoomHint
+                          activeLayers={activeLayers as unknown as Record<string, unknown>}
+                          onFlyTo={onFlyTo}
+                        />
+                      )}
 
                       {/* Section layers (collapsible) */}
                       {expanded && (

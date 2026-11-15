@@ -52,6 +52,7 @@ describe('FindLocateBar supplemental visible-layer search', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   it('finds a fishing vessel while the fishing layer is visible', async () => {
@@ -68,11 +69,12 @@ describe('FindLocateBar supplemental visible-layer search', () => {
 
   it('does not surface assets from a hidden supplemental layer', async () => {
     saveActiveLayers({ ...getDefaultActiveLayers(), fishing_activity: false });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"results":[]}', { status: 200 })));
     render(<FindLocateBar onLocate={vi.fn()} />);
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'RAUDA' } });
 
-    expect(await screen.findByText('NO MATCHING ASSETS')).toBeTruthy();
+    expect(await screen.findByText(/NO MATCHING ASSETS/, undefined, { timeout: 3000 })).toBeTruthy();
     expect(screen.queryByText('RAUDA')).toBeNull();
   });
 });

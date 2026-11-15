@@ -10,7 +10,13 @@ export const LAYER_PREFERENCES_CHANGED_EVENT = 'sb:layer-preferences-changed';
 export const MAP_STYLES = ['DEFAULT', 'SATELLITE'] as const;
 export type MapStyle = (typeof MAP_STYLES)[number];
 
+/**
+ * DATA LAYERS group order, top to bottom. CIVIC & ELECTIONS leads: it is what
+ * a visitor comes to the board for (cameras, districts), and as the 8th
+ * collapsed group nobody found it.
+ */
 export const LAYER_SECTION_IDS = [
+  'civic',
   'aircraft',
   'maritime',
   'space',
@@ -18,7 +24,6 @@ export const LAYER_SECTION_IDS = [
   'uap',
   'biosurveillance',
   'infrastructure',
-  'civic',
   'shodan',
   'sigint',
   'overlays',
@@ -26,8 +31,23 @@ export const LAYER_SECTION_IDS = [
 
 export type LayerSectionId = (typeof LAYER_SECTION_IDS)[number];
 
+/**
+ * Civic layers a visitor gets ON by default: the cheap ones (one OSM/DeFlock
+ * point query, two TIGERweb state layers). They draw only once the map is
+ * zoomed into an area, which the CIVIC section says inline.
+ */
+export const CIVIC_DEFAULT_ON_LAYERS = ['civic_alpr', 'civic_congressional', 'civic_counties'] as const;
+
+/**
+ * Bumped when a shipped default must reach visitors who already have saved
+ * prefs (a full saved layer map would otherwise pin the old default forever).
+ * 2 = civic first: CIVIC_DEFAULT_ON_LAYERS on and the CIVIC section open.
+ */
+export const DASHBOARD_DEFAULTS_REV = 2;
+
 type DashboardPrefsV1 = {
   version: typeof DASHBOARD_PREFS_VERSION;
+  defaultsRev?: number;
   layers?: Partial<ActiveLayers>;
   mapStyle?: string;
   filters?: Record<string, string[]>;
@@ -91,15 +111,15 @@ export function getDefaultActiveLayers(): ActiveLayers {
     shodan_overlay: false,
     ai_intel: true,
     sar: true,
-    civic_alpr: false,
+    civic_alpr: true,
     civic_datacenters: false,
     civic_projects: false,
     civic_representatives: false,
-    civic_congressional: false,
+    civic_congressional: true,
     civic_state_senate: false,
     civic_state_house: false,
     civic_school_districts: false,
-    civic_counties: false,
+    civic_counties: true,
     civic_places: false,
     twin_town: false,
     twin_town_news: false,
@@ -124,7 +144,29 @@ function isStringArrayRecord(value: unknown): value is Record<string, string[]> 
   );
 }
 
+/** Apply shipped-default revisions the saved prefs predate (pure). */
+export function migrateDashboardPrefs(prefs: DashboardPrefsV1): DashboardPrefsV1 {
+  const rev = typeof prefs.defaultsRev === 'number' ? prefs.defaultsRev : 0;
+  if (rev >= DASHBOARD_DEFAULTS_REV) return prefs;
+  const out: DashboardPrefsV1 = { ...prefs, defaultsRev: DASHBOARD_DEFAULTS_REV };
+  if (rev < 2) {
+    if (out.layers) {
+      const layers = { ...out.layers };
+      for (const id of CIVIC_DEFAULT_ON_LAYERS) layers[id] = true;
+      out.layers = layers;
+    }
+    if (out.layerSectionsExpanded) {
+      out.layerSectionsExpanded = { ...out.layerSectionsExpanded, civic: true };
+    }
+  }
+  return out;
+}
+
 function readDashboardPrefs(): DashboardPrefsV1 {
+  return migrateDashboardPrefs(readStoredDashboardPrefs());
+}
+
+function readStoredDashboardPrefs(): DashboardPrefsV1 {
   if (typeof window === 'undefined') {
     return { version: DASHBOARD_PREFS_VERSION };
   }
@@ -165,6 +207,7 @@ function writeDashboardPrefs(patch: Omit<DashboardPrefsV1, 'version'>): void {
         version: DASHBOARD_PREFS_VERSION,
         ...current,
         ...patch,
+        defaultsRev: DASHBOARD_DEFAULTS_REV,
       }),
     );
     localStorage.removeItem(LAYER_PREFERENCES_STORAGE_KEY);
@@ -330,7 +373,19 @@ export function saveActiveFilters(filters: Record<string, string[]>): void {
 }
 
 export function getDefaultLayerSectionExpanded(): Record<string, boolean> {
-  return Object.fromEntries(LAYER_SECTION_IDS.map((id) => [id, id === 'overlays']));
+  return Object.fromEntries(LAYER_SECTION_IDS.map((id) => [id, id === 'overlays' || id === 'civic']));
+}
+
+/** Sort DATA LAYERS sections into LAYER_SECTION_IDS order; unknown ids keep their place at the end. */
+export function orderLayerSections<T extends { id: string }>(sections: T[]): T[] {
+  const rank = (id: string) => {
+    const i = (LAYER_SECTION_IDS as readonly string[]).indexOf(id);
+    return i === -1 ? LAYER_SECTION_IDS.length : i;
+  };
+  return sections
+    .map((section, index) => ({ section, index }))
+    .sort((a, b) => rank(a.section.id) - rank(b.section.id) || a.index - b.index)
+    .map((x) => x.section);
 }
 
 export function mergeLayerSectionExpanded(

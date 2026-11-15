@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ActiveLayers } from '@/types/dashboard';
 import { getVisibleViewBounds } from '@/lib/liveDataViewport';
 import { VIEWPORT_COMMITTED_EVENT, VISIBLE_VIEW_EVENT } from '@/components/map/hooks/useViewportBounds';
-import { setCivicCoverage } from '@/lib/civicLayers';
+import { CIVIC_VIEW_MAX_LAT_SPAN, setCivicCoverage } from '@/lib/civicLayers';
 import {
   CIVIC_BOUNDARY_TOGGLES,
   CIVIC_BOUNDARY_TOGGLE_KEYS,
@@ -41,7 +41,7 @@ export type CivicBoundariesState = {
 
 const EMPTY: CivicBoundariesState = { layers: {}, states: [], meta: [], loading: false, note: null };
 /** Latitude span above which the view covers too many states to draw district lines. */
-export const CIVIC_BOUNDARY_MAX_LAT_SPAN = 12;
+export const CIVIC_BOUNDARY_MAX_LAT_SPAN = CIVIC_VIEW_MAX_LAT_SPAN;
 const MAX_STATES = 2;
 const DEBOUNCE_MS = 900;
 

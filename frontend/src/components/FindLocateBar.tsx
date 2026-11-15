@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useDeferredValue, useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Crosshair, Plane, Shield, Star, Ship, X, Database } from 'lucide-react';
+import { Search, Crosshair, Plane, Shield, Star, Ship, X, Database, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from '@/lib/motion';
 import { trackedOperators } from '../lib/trackedData';
 import { useDataKeys } from '@/hooks/useDataStore';
@@ -11,11 +11,26 @@ import {
 } from '@/lib/layerPreferences';
 import type { ActiveLayers } from '@/types/dashboard';
 import { useTranslation } from '@/i18n';
+import { parseCoordinateInput } from '@/lib/mapZoom';
+import { CIVIC_FOCUS_ZOOM } from '@/lib/civicLayers';
+import {
+  PLACE_QUERY_MIN,
+  PLACE_SEARCH_DEBOUNCE_MS,
+  searchPlaces,
+  type PlaceResult,
+} from '@/lib/placeSearch';
 
 interface FindLocateBarProps {
   onLocate: (lat: number, lng: number, entityId: string, entityType: string) => void;
   onFilter?: (filterType: string, filterValue: string) => void;
+  /**
+   * Fly to a typed coordinate or a geocoded place at `zoom` (close enough for
+   * civic layers to load). Without it, places fall back to onLocate.
+   */
+  onLocatePlace?: (lat: number, lng: number, zoom: number) => void;
 }
+
+type PlaceStatus = 'idle' | 'loading' | 'error';
 
 interface SearchResult {
   id: string;
@@ -43,7 +58,36 @@ function matchesQuery(query: string, ...values: unknown[]): boolean {
   });
 }
 
-const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: FindLocateBarProps) {
+/** A typed "lat, lng" as a result row, or null. */
+export function coordinateSearchResult(raw: string): SearchResult | null {
+  const c = parseCoordinateInput(raw);
+  if (!c) return null;
+  return {
+    id: `coords-${c.lat},${c.lng}`,
+    label: `${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`,
+    sublabel: 'Go to these coordinates',
+    category: 'COORDS',
+    categoryColor: 'text-amber-300',
+    lat: c.lat,
+    lng: c.lng,
+    entityType: 'coordinates',
+  };
+}
+
+function placeSearchResult(p: PlaceResult, i: number): SearchResult {
+  return {
+    id: `place-${i}-${p.lat},${p.lng}`,
+    label: p.label.split(',')[0] || p.label,
+    sublabel: p.label,
+    category: 'PLACE',
+    categoryColor: 'text-amber-300',
+    lat: p.lat,
+    lng: p.lng,
+    entityType: 'place',
+  };
+}
+
+const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter, onLocatePlace }: FindLocateBarProps) {
   const { t } = useTranslation();
   const data = useDataKeys([
     'commercial_flights',
@@ -61,6 +105,9 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const [isOpen, setIsOpen] = useState(false);
+  const [places, setPlaces] = useState<SearchResult[]>([]);
+  const [placeStatus, setPlaceStatus] = useState<PlaceStatus>('idle');
+  const coordResult = useMemo(() => coordinateSearchResult(query), [query]);
   const [visibleLayers, setVisibleLayers] = useState<ActiveLayers>(loadActiveLayers);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,6 +132,34 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
       window.removeEventListener('storage', onStorage);
     };
   }, []);
+
+  // Place names: debounced, server-side geocode (never Nominatim from here).
+  useEffect(() => {
+    const q = query.trim();
+    if (coordResult || q.length < PLACE_QUERY_MIN) {
+      setPlaces([]);
+      setPlaceStatus('idle');
+      return;
+    }
+    const controller = new AbortController();
+    setPlaceStatus('loading');
+    const timer = setTimeout(() => {
+      searchPlaces(q, controller.signal)
+        .then((found) => {
+          setPlaces(found.map(placeSearchResult));
+          setPlaceStatus('idle');
+        })
+        .catch((err: unknown) => {
+          if ((err as Error)?.name === 'AbortError') return;
+          setPlaces([]);
+          setPlaceStatus('error');
+        });
+    }, PLACE_SEARCH_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, coordResult]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -341,8 +416,17 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
     return results;
   }, [deferredQuery, allEntities, data, visibleLayers]);
 
+  // Typed coordinates first, then places, then live assets.
+  const shown = useMemo(
+    () => [...(coordResult ? [coordResult] : []), ...places, ...filtered],
+    [coordResult, places, filtered],
+  );
+
   const handleSelect = (result: SearchResult) => {
-    if (result.entityType === 'database_operator') {
+    if (result.entityType === 'coordinates' || result.entityType === 'place') {
+      if (onLocatePlace) onLocatePlace(result.lat, result.lng, CIVIC_FOCUS_ZOOM);
+      else onLocate(result.lat, result.lng, result.id, result.entityType);
+    } else if (result.entityType === 'database_operator') {
       if (onFilter) onFilter('tracked_owner', result.label);
     } else {
       onLocate(result.lat, result.lng, result.id, result.entityType);
@@ -363,6 +447,8 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
     BASE: <Shield size={10} className="text-red-400" />,
     SDR: <Crosshair size={10} className="text-green-400" />,
     DATABASE: <Database size={10} className="text-purple-400" />,
+    COORDS: <Crosshair size={10} className="text-amber-300" />,
+    PLACE: <MapPin size={10} className="text-amber-300" />,
   };
 
   return (
@@ -383,6 +469,12 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && shown.length > 0) {
+              e.preventDefault();
+              handleSelect(shown[0]);
+            }
+          }}
         />
         {query && (
           <button
@@ -399,7 +491,7 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
       </div>
 
       <AnimatePresence>
-        {isOpen && filtered.length > 0 && (
+        {isOpen && shown.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -407,7 +499,7 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
             className="absolute top-full left-0 right-0 mt-1 bg-[var(--bg-secondary)]/90 backdrop-blur-sm border border-[var(--border-primary)] overflow-hidden z-50 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
             <div className="max-h-[300px] overflow-y-auto styled-scrollbar">
-              {filtered.map((r, idx) => (
+              {shown.map((r, idx) => (
                 <button
                   key={`${r.id}-${idx}`}
                   onClick={() => handleSelect(r)}
@@ -433,11 +525,12 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
               ))}
             </div>
             <div className="px-3 py-1.5 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/50 text-[11px] text-[var(--text-muted)] font-mono tracking-widest">
-              {filtered.length} RESULT{filtered.length !== 1 ? 'S' : ''} — CLICK TO LOCATE
+              {shown.length} RESULT{shown.length !== 1 ? 'S' : ''}
+              {placeStatus === 'loading' ? ' · SEARCHING PLACES…' : ''} — CLICK TO LOCATE
             </div>
           </motion.div>
         )}
-        {isOpen && query.trim() && filtered.length === 0 && (
+        {isOpen && query.trim() && shown.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -445,7 +538,11 @@ const FindLocateBar = React.memo(function FindLocateBar({ onLocate, onFilter }: 
             className="absolute top-full left-0 right-0 mt-1 bg-[var(--bg-secondary)]/90 backdrop-blur-sm border border-[var(--border-primary)] z-50 p-4 text-center"
           >
             <div className="text-[9px] text-[var(--text-muted)] font-mono tracking-widest">
-              NO MATCHING ASSETS
+              {placeStatus === 'loading'
+                ? 'SEARCHING PLACES…'
+                : placeStatus === 'error'
+                  ? 'NO MATCHING ASSETS · PLACE SEARCH UNAVAILABLE'
+                  : 'NO MATCHING ASSETS OR PLACES'}
             </div>
           </motion.div>
         )}
