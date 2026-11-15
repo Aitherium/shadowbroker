@@ -325,3 +325,46 @@ export function setCivicCoverage(part: keyof CivicCoverage, label: string | null
   coverage = { ...coverage, [part]: label };
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CIVIC_COVERAGE_EVENT));
 }
+
+// ─── "Zoom in to load" hint ─────────────────────────────────────────────────
+//
+// Civic layers are area-scoped: at world zoom the boundaries draw nothing and
+// the point layers have no sensible area, so turning one on used to do
+// nothing visible. The CIVIC section shows this hint instead of silence.
+
+/** Every civic toggle that only draws for a zoomed-in area. */
+export const CIVIC_AREA_LAYER_IDS = [
+  'civic_alpr',
+  'civic_datacenters',
+  'civic_projects',
+  'civic_congressional',
+  'civic_state_senate',
+  'civic_state_house',
+  'civic_school_districts',
+  'civic_counties',
+  'civic_places',
+] as const;
+
+/** A visible view taller than this (degrees of latitude) loads no civic area. */
+export const CIVIC_VIEW_MAX_LAT_SPAN = 12;
+/** Zoom a civic "go there" lands at: one ~50 km circle, district lines drawn. */
+export const CIVIC_FOCUS_ZOOM = 11;
+/** "Go to a city" when the visitor shares no location: San Francisco. */
+export const CIVIC_DEMO_CITY = { label: 'San Francisco', lat: 37.7749, lng: -122.4194 } as const;
+
+export const CIVIC_ZOOM_HINT =
+  'Zoom in or search a place to load cameras, districts and other civic data.';
+
+/**
+ * The hint to show, or null when nothing civic is on or the view is already
+ * close enough to load. No committed view yet counts as "too far".
+ */
+export function civicZoomHint(
+  bounds: LiveDataBounds | null | undefined,
+  activeLayers: Partial<Record<string, unknown>>,
+): string | null {
+  const anyOn = CIVIC_AREA_LAYER_IDS.some((id) => activeLayers[id] === true);
+  if (!anyOn) return null;
+  if (!bounds || ![bounds.south, bounds.north].every(finite)) return CIVIC_ZOOM_HINT;
+  return Math.abs(bounds.north - bounds.south) > CIVIC_VIEW_MAX_LAT_SPAN ? CIVIC_ZOOM_HINT : null;
+}

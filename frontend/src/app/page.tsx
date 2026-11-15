@@ -10,6 +10,7 @@ import NewsFeed from '@/components/NewsFeed';
 import MarketsPanel from '@/components/MarketsPanel';
 import FilterPanel from '@/components/FilterPanel';
 import FindLocateBar from '@/components/FindLocateBar';
+import { AGENT_CHAT_DEFAULT_CLOSED, agentChatDefaultRect } from '@/lib/agentChat/panelDefaults';
 import TopRightControls from '@/components/TopRightControls';
 import TimelinePanel from '@/components/TimelinePanel';
 import MapLegend from '@/components/MapLegend';
@@ -488,7 +489,8 @@ function DashboardInner() {
   } | null>(null);
 
   const handleFlyTo = useCallback(
-    (lat: number, lng: number) => setFlyToLocation({ lat, lng, ts: Date.now() }),
+    (lat: number, lng: number, zoom?: number) =>
+      setFlyToLocation(zoom === undefined ? { lat, lng, ts: Date.now() } : { lat, lng, zoom, ts: Date.now() }),
     [],
   );
 
@@ -835,6 +837,9 @@ function DashboardInner() {
               <FindLocateBar
                 onLocate={(lat, lng, _entityId, _entityType) => {
                   setFlyToLocation({ lat, lng, ts: Date.now() });
+                }}
+                onLocatePlace={(lat, lng, zoom) => {
+                  setFlyToLocation({ lat, lng, zoom, ts: Date.now() });
                 }}
                 onFilter={(filterKey, value) => {
                     setActiveFilters((prev) => {
@@ -1185,7 +1190,8 @@ function DashboardInner() {
               title="AGENT CHAT — ASK THE MAP"
               defaultDock={null}
               order={5}
-              defaultRect={(vp) => ({ x: Math.max(16, vp.width - 860), y: Math.max(80, vp.height - 640), w: 420, h: 580 })}
+              defaultClosed={AGENT_CHAT_DEFAULT_CLOSED}
+              defaultRect={(vp) => agentChatDefaultRect(vp)}
             >
               <AgentChatPanel
                 embedded

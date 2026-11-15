@@ -45,6 +45,8 @@ export interface PanelDefinition {
   minWidth: number;
   minHeight: number;
   role: PanelRole;
+  /** Starts closed (reopen from the PANELS menu) until the operator opens it. */
+  defaultClosed: boolean;
 }
 
 export interface PanelState {
@@ -118,6 +120,7 @@ export function definePanel(
     minWidth: def.minWidth ?? DEFAULT_MIN_WIDTH,
     minHeight: def.minHeight ?? DEFAULT_MIN_HEIGHT,
     role: def.role ?? 'tool',
+    defaultClosed: def.defaultClosed ?? false,
     defaultRect:
       def.defaultRect ??
       ((vp: Viewport) => {
@@ -193,7 +196,7 @@ export function resolvePanelState(layout: PanelLayout, def: PanelDefinition): Pa
     rect: stored.rect ?? null,
     dockHeight: stored.dockHeight ?? null,
     minimized: stored.minimized ?? false,
-    closed: stored.closed ?? false,
+    closed: stored.closed ?? def.defaultClosed ?? false,
     poppedOut: stored.poppedOut ?? false,
     z: stored.z ?? 0,
     autoHeight: stored.autoHeight ?? false,

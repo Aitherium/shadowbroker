@@ -77,6 +77,8 @@ export interface FloatingPanelProps {
   role?: PanelRole;
   /** While docked with no fixed height, take the remaining column height. */
   dockGrow?: boolean;
+  /** Start closed; the PANELS menu (or a handed-in prompt) opens it. */
+  defaultClosed?: boolean;
   children: React.ReactNode;
 }
 
@@ -148,6 +150,7 @@ export default function FloatingPanel({
   minHeight,
   role,
   dockGrow = false,
+  defaultClosed = false,
   children,
 }: FloatingPanelProps) {
   const ws = usePanelWorkspace();
@@ -157,10 +160,10 @@ export default function FloatingPanel({
   const defaultRectRef = useRef(defaultRect);
   defaultRectRef.current = defaultRect;
   const def = useMemo<PanelDefinition>(() => {
-    const base = definePanel({ id, title, defaultDock, order, minWidth, minHeight, role });
+    const base = definePanel({ id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed });
     const fallback = base.defaultRect;
     return { ...base, defaultRect: (vp: Viewport) => (defaultRectRef.current ?? fallback)(vp) };
-  }, [id, title, defaultDock, order, minWidth, minHeight, role]);
+  }, [id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed]);
 
   useEffect(() => register(def), [register, def]);
 
