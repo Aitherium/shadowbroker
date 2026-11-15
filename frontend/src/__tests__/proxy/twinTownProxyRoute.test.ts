@@ -65,25 +65,12 @@ describe('civic proxy: twin town', () => {
   const sentHeaders = (i = 0) => new Headers((fetchMock.mock.calls[i][1] as RequestInit).headers);
   const ok = () => new Response('{"type":"FeatureCollection","features":[]}', { status: 200 });
 
-  it('forwards CF-Connecting-IP only when the request came through Cloudflare (well-formed CF-Ray)', async () => {
-    const mod = await freshRoute();
-    fetchMock.mockImplementation(async () => ok());
-    await call(mod, ['town'], 'lat=39.1&lng=-84.5&radius_km=14&format=geojson', {
-      'cf-connecting-ip': '203.0.113.7',
-      'cf-ray': '8f1c2d3e4a5b6c7d-IAD',
-      'x-forwarded-for': '198.51.100.9',
-    });
-    expect(sentHeaders(0).get('CF-Connecting-IP')).toBe('203.0.113.7');
-    expect(sentHeaders(0).get('X-Forwarded-For')).toBeNull();
-  });
-
-  it('never forwards a client-supplied IP without a valid CF-Ray, and never X-Forwarded-For', async () => {
+  it('never forwards CF-Connecting-IP or X-Forwarded-For (Cloudflare 403s a client-sent CF-Connecting-IP)', async () => {
     const mod = await freshRoute();
     fetchMock.mockImplementation(async () => ok());
     const cases: Array<Record<string, string>> = [
+      { 'cf-connecting-ip': '203.0.113.7', 'cf-ray': '8f1c2d3e4a5b6c7d-IAD' },
       { 'cf-connecting-ip': '203.0.113.7' },
-      { 'cf-connecting-ip': '203.0.113.7', 'cf-ray': 'not-a-ray' },
-      { 'cf-connecting-ip': '203.0.113.7, 10.0.0.1', 'cf-ray': '8f1c2d3e4a5b6c7d-IAD' },
       { 'x-forwarded-for': '198.51.100.9' },
     ];
     for (const [i, h] of cases.entries()) {
@@ -95,17 +82,15 @@ describe('civic proxy: twin town', () => {
     expect(fetchMock).toHaveBeenCalledTimes(cases.length);
   });
 
-  it("a visitor's 429 passes through without silencing the route for other visitors", async () => {
+  it("a 429 is the proxy's quota: it passes through, then the route cools down for everyone", async () => {
     const mod = await freshRoute();
-    const cf = (ip: string) => ({ 'cf-connecting-ip': ip, 'cf-ray': '8f1c2d3e4a5b6c7d-IAD' });
     fetchMock.mockResolvedValueOnce(new Response('{"detail":"quota"}', { status: 429, headers: { 'retry-after': '3600' } }));
-    const limited = await call(mod, ['town'], 'lat=40&lng=-84.5&radius_km=14&format=geojson', cf('203.0.113.7'));
+    const limited = await call(mod, ['town'], 'lat=40&lng=-84.5&radius_km=14&format=geojson');
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBe('3600');
-    fetchMock.mockResolvedValueOnce(ok());
-    const other = await call(mod, ['town'], 'lat=41&lng=-84.5&radius_km=14&format=geojson', cf('203.0.113.8'));
-    expect(other.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const other = await call(mod, ['town'], 'lat=41&lng=-84.5&radius_km=14&format=geojson');
+    expect(other.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('passes a 503 Retry-After through', async () => {

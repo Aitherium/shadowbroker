@@ -80,6 +80,7 @@ import SarAoiEditorModal from '@/components/SarAoiEditorModal';
 import {
   FloatingPanel,
   PanelDock,
+  MobilePanelBar,
   PanelFloatLayer,
   PanelsMenu,
   PanelWorkspaceProvider,
@@ -621,7 +622,7 @@ function DashboardInner() {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1 }}
-              className="absolute top-6 left-6 z-[200] pointer-events-none flex items-center gap-4 hud-zone"
+              className="absolute top-2 left-2 md:top-6 md:left-6 z-[200] pointer-events-none flex items-center gap-2 md:gap-4 hud-zone"
             >
               <div className="w-8 h-8 flex items-center justify-center">
                 {/* Target Reticle Icon */}
@@ -633,19 +634,19 @@ function DashboardInner() {
               </div>
               <div className="flex flex-col">
                 <h1
-                  className="text-2xl font-bold tracking-[0.4em] text-[var(--text-primary)] flex items-center gap-3 text-glow"
+                  className="text-base md:text-2xl font-bold tracking-[0.15em] md:tracking-[0.4em] text-[var(--text-primary)] flex items-center gap-2 md:gap-3 text-glow whitespace-nowrap"
                   style={{ fontFamily: 'var(--font-roboto-mono), monospace' }}
                 >
                   S H A D O W <span className="text-cyan-400">B R O K E R</span>
                 </h1>
-                <span className="text-[11px] text-[var(--text-muted)] font-mono tracking-[0.3em] mt-1 ml-1">
+                <span className="hidden md:block text-[11px] text-[var(--text-muted)] font-mono tracking-[0.3em] mt-1 ml-1">
                   {t('brand.subtitle')}
                 </span>
               </div>
             </motion.div>
 
             {/* SYSTEM METRICS TOP LEFT */}
-            <div className="absolute top-2 left-6 text-[11px] font-mono tracking-widest text-cyan-500/50 z-[200] pointer-events-none hud-zone">
+            <div className="hidden md:block absolute top-2 left-6 text-[11px] font-mono tracking-widest text-cyan-500/50 z-[200] pointer-events-none hud-zone">
               {t('brand.systemMetrics')}
             </div>
 
@@ -658,7 +659,8 @@ function DashboardInner() {
                 HUD popups (EntityGraph 250) < ticker (8000) < FLOATS (8500) <
                 PANELS menu (8600) < offline banner (9000) < modals (9998+). */}
             <PanelFloatLayer className="z-[8500]" />
-            <PanelsMenu className="absolute top-2 left-1/2 -translate-x-1/2 z-[8600]" />
+            <PanelsMenu className="hidden md:block absolute top-2 left-1/2 -translate-x-1/2 z-[8600]" />
+            <MobilePanelBar />
 
             {/* LEFT DOCK — scrollbar on LEFT edge */}
             <PanelDock side="left" open={leftOpen} className="left-6 top-24 bottom-9 z-[201]" />
@@ -780,7 +782,7 @@ function DashboardInner() {
 
             {/* LEFT SIDEBAR TOGGLE TAB — aligns with Data Layers section */}
             <motion.div
-              className="absolute left-0 top-[12.5rem] z-[201] pointer-events-auto hud-zone"
+              className="hidden md:block absolute left-0 top-[12.5rem] z-[201] pointer-events-auto hud-zone"
               animate={{ x: leftOpen ? dockWidths.left.width + 24 : 0 }}
               transition={{ type: 'spring', damping: 30, stiffness: 250 }}
             >
@@ -800,7 +802,7 @@ function DashboardInner() {
 
             {/* RIGHT SIDEBAR TOGGLE TAB */}
             <motion.div
-              className="absolute right-0 top-[12.5rem] z-[201] pointer-events-auto hud-zone"
+              className="hidden md:block absolute right-0 top-[12.5rem] z-[201] pointer-events-auto hud-zone"
               animate={{ x: rightOpen ? -(dockWidths.right.width + 24) : 0 }}
               transition={{ type: 'spring', damping: 30, stiffness: 250 }}
             >
@@ -898,7 +900,7 @@ function DashboardInner() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1, duration: 1 }}
-                className="absolute bottom-9 left-1/2 -translate-x-1/2 z-[200] pointer-events-auto flex flex-col items-center gap-2 hud-zone"
+                className="absolute bottom-14 md:bottom-9 left-1/2 -translate-x-1/2 z-[200] pointer-events-auto flex flex-col items-center gap-2 hud-zone max-w-[calc(100vw-1rem)]"
               >
                 {/* LOCATE BAR — search by coordinates or place name */}
                 <LocateBar
@@ -1008,7 +1010,7 @@ function DashboardInner() {
 
         {/* DYNAMIC SCALE BAR — hidden when fullscreen overlays or locate bar are open */}
         {!(selectedEntity?.type === 'region_dossier' && regionDossier?.sentinel2) && selectedEntity?.type !== 'cctv' && selectedEntity?.type !== 'news' && !locateBarOpen && (
-        <div className="absolute bottom-[7rem] left-[23rem] z-[201] pointer-events-auto">
+        <div className="hidden md:block absolute bottom-[7rem] left-[23rem] z-[201] pointer-events-auto">
           <ScaleBar
             zoom={mapView.zoom}
             latitude={mapView.latitude}
@@ -1148,7 +1150,7 @@ function DashboardInner() {
         )}
         {/* BOTTOM TICKER TOGGLE TAB — moved to center-right to avoid panel overlap */}
         <motion.div
-           className={`absolute bottom-0 right-[28rem] z-[8001] pointer-events-auto hud-zone transition-opacity duration-300 ${tickerOpen ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
+           className={`hidden md:block absolute bottom-0 right-[28rem] z-[8001] pointer-events-auto hud-zone transition-opacity duration-300 ${tickerOpen ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
            animate={{ y: tickerOpen ? -28 : 0 }}
            transition={{ type: 'spring', damping: 30, stiffness: 250 }}
         >
@@ -1165,7 +1167,7 @@ function DashboardInner() {
 
         {/* GLOBAL MARKETS TICKER (BOTTOM ANCHOR) */}
         <motion.div
-          className="absolute bottom-0 left-0 right-0 z-[8000] h-7"
+          className="hidden md:block absolute bottom-0 left-0 right-0 z-[8000] h-7"
           animate={{ y: tickerOpen ? 0 : 28 }}
           transition={{ type: 'spring', damping: 30, stiffness: 250 }}
         >
