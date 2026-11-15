@@ -28,7 +28,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveCivicProxyRequest, type CivicRouteKind } from '@/lib/civicDirectory';
-import { cloudflareClientIp } from '@/lib/server/civicClientIp';
 
 /** Serve a cached copy this long after a failed refresh. */
 const MIN_STALE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -119,7 +118,6 @@ export async function GET(
     );
   }
 
-  const clientIp = cloudflareClientIp(req.headers);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), route.timeoutMs);
   try {
@@ -127,7 +125,10 @@ export async function GET(
       headers: {
         Accept: 'application/json',
         'User-Agent': 'AitherShadowBroker/1.0',
-        ...(clientIp ? { 'CF-Connecting-IP': clientIp } : {}),
+        // Never forward CF-Connecting-IP: the upstream is itself behind Cloudflare,
+        // which answers a client-sent CF-Connecting-IP with 403, so every visitor
+        // who came through Cloudflare got a 502 and no civic layer (2026-11-15).
+        // The upstream rate-limits on the address its own proxy chain derives.
       },
       signal: controller.signal,
       cache: 'no-store',
@@ -145,10 +146,9 @@ export async function GET(
       });
     }
     if (!res.ok) {
-      // A 429 for a forwarded visitor is THAT visitor's quota: it must not
-      // silence the route for everyone else. Without a visitor IP the proxy is
-      // the one bucket, so back off for all.
-      if (res.status === 503 || (res.status === 429 && !clientIp)) {
+      // The proxy is the upstream's one client, so a 429 is the proxy's quota:
+      // back off for everyone, like a 503.
+      if (res.status === 503 || res.status === 429) {
         upstreamBlockedUntil.set(route.kind, Date.now() + UPSTREAM_COOLDOWN_MS);
       }
       if (usableStale(cached)) {
