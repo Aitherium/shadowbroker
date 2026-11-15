@@ -2,6 +2,7 @@
 
 import { API_BASE } from '@/lib/api';
 import { clampZoom, ZOOM_MAX, ZOOM_FALLBACK } from '@/lib/mapZoom';
+import { currentDeepLink } from '@/lib/universeDeepLink';
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import Map, {
   Source,
@@ -451,17 +452,20 @@ const MaplibreViewer = ({
     [theme, cartoApiKey],
   );
 
-  const initialViewState = useMemo<ViewState>(
-    () => ({
-      longitude: 0,
-      latitude: 20,
-      zoom: 2,
+  // LAND: a universe deep link (?lat=&lng=&zoom=) opens the map on that point;
+  // invalid values are ignored and the default world view stands.
+  const initialViewState = useMemo<ViewState>(() => {
+    const link = currentDeepLink();
+    const landed = link.lat !== undefined && link.lng !== undefined;
+    return {
+      longitude: landed ? (link.lng as number) : 0,
+      latitude: landed ? (link.lat as number) : 20,
+      zoom: landed ? (link.zoom ?? ZOOM_FALLBACK) : 2,
       bearing: 0,
       pitch: 0,
       padding: { top: 0, bottom: 0, left: 0, right: 0 },
-    }),
-    [],
-  );
+    };
+  }, []);
   const viewStateRef = useRef<ViewState>(initialViewState);
   const [mapZoom, setMapZoom] = useState(initialViewState.zoom);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());

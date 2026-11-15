@@ -10,6 +10,7 @@ import NewsFeed from '@/components/NewsFeed';
 import MarketsPanel from '@/components/MarketsPanel';
 import FilterPanel from '@/components/FilterPanel';
 import FindLocateBar from '@/components/FindLocateBar';
+import UniverseTravel from '@/components/UniverseTravel';
 import { AGENT_CHAT_DEFAULT_CLOSED, agentChatDefaultRect } from '@/lib/agentChat/panelDefaults';
 import TopRightControls from '@/components/TopRightControls';
 import TimelinePanel from '@/components/TimelinePanel';
@@ -645,6 +646,7 @@ function DashboardInner() {
                   {t('brand.subtitle')}
                 </span>
               </div>
+              <UniverseTravel />
             </motion.div>
 
             {/* SYSTEM METRICS TOP LEFT */}
