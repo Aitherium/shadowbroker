@@ -256,6 +256,10 @@ def _merge_telegram_posts(
     *,
     max_posts: int = 120,
 ) -> tuple[list[dict[str, Any]], int]:
+    # Rows stored before the block-split fix carry the bare channel URL as their
+    # link and the FETCH time as `published` (no date was parsed). They are not
+    # posts we can date or open; drop them so they stop surfacing as new.
+    existing = [p for p in existing if _POST_LINK_RE.match(_post_link(p))]
     known_links = {_post_link(post) for post in existing if _post_link(post)}
     added = 0
     for post in incoming:
@@ -269,10 +273,26 @@ def _merge_telegram_posts(
     return existing[:max_posts], added
 
 
+_WRAP_MARK = '<div class="tgme_widget_message_wrap'
+_POST_LINK_RE = re.compile(r"^https://t\.me/[^/]+/\d+")
+
+
+def _message_blocks(html: str) -> list[str]:
+    """One chunk per post, from its wrapper to the next wrapper.
+
+    _MESSAGE_BLOCK_RE stops at the first three closing </div>s, which come BEFORE
+    the post's <time datetime=...> footer whenever the text has nested divs. Every
+    such post then fell back to the fetch time as `published`, so a 07 Nov report
+    was served as current on 18 Nov. Splitting on the wrapper keeps the footer."""
+    text = html or ""
+    starts = [m.start() for m in re.finditer(re.escape(_WRAP_MARK), text)]
+    return [text[a:b] for a, b in zip(starts, starts[1:] + [len(text)])]
+
+
 def parse_telegram_channel_html(html: str, channel: str) -> list[dict[str, Any]]:
     """Parse public t.me/s channel preview HTML into post dicts."""
     posts: list[dict[str, Any]] = []
-    for block in _MESSAGE_BLOCK_RE.findall(html or ""):
+    for block in _message_blocks(html):
         text_match = _TEXT_RE.search(block)
         if not text_match:
             continue
