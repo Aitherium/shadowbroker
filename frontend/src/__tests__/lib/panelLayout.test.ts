@@ -60,6 +60,13 @@ describe('panelLayout — resolve defaults', () => {
   it('defaultDock null starts floating', () => {
     expect(resolvePanelState(createDefaultLayout(), floater).mode).toBe('floating');
   });
+
+  it('a pinned panel ignores a remembered close or pop-out', () => {
+    const pinnedLayers = definePanel({ id: 'layers', title: 'DATA LAYERS', order: 0, pinned: true });
+    const stored = patchPanel(createDefaultLayout(), 'layers', { closed: true, poppedOut: true });
+    expect(resolvePanelState(stored, pinnedLayers)).toMatchObject({ closed: false, poppedOut: false });
+    expect(resolvePanelState(stored, layers)).toMatchObject({ closed: true, poppedOut: true });
+  });
 });
 
 describe('panelLayout — clamp', () => {

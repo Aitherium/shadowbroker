@@ -79,6 +79,8 @@ export interface FloatingPanelProps {
   dockGrow?: boolean;
   /** Start closed; the PANELS menu (or a handed-in prompt) opens it. */
   defaultClosed?: boolean;
+  /** Never closable or poppable; a remembered close is ignored. */
+  pinned?: boolean;
   children: React.ReactNode;
 }
 
@@ -151,6 +153,7 @@ export default function FloatingPanel({
   role,
   dockGrow = false,
   defaultClosed = false,
+  pinned = false,
   children,
 }: FloatingPanelProps) {
   const ws = usePanelWorkspace();
@@ -160,10 +163,10 @@ export default function FloatingPanel({
   const defaultRectRef = useRef(defaultRect);
   defaultRectRef.current = defaultRect;
   const def = useMemo<PanelDefinition>(() => {
-    const base = definePanel({ id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed });
+    const base = definePanel({ id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed, pinned });
     const fallback = base.defaultRect;
     return { ...base, defaultRect: (vp: Viewport) => (defaultRectRef.current ?? fallback)(vp) };
-  }, [id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed]);
+  }, [id, title, defaultDock, order, minWidth, minHeight, role, defaultClosed, pinned]);
 
   useEffect(() => register(def), [register, def]);
 
@@ -445,14 +448,18 @@ export default function FloatingPanel({
               <Move size={11} />
             </HeaderButton>
           )}
-          <HeaderButton title="Pop out to a separate window" onClick={popOut}>
-            <ExternalLink size={11} />
-          </HeaderButton>
+          {!def.pinned && (
+            <HeaderButton title="Pop out to a separate window" onClick={popOut}>
+              <ExternalLink size={11} />
+            </HeaderButton>
+          )}
         </>
       )}
-      <HeaderButton title="Close panel (reopen from the PANELS menu)" onClick={close}>
-        <X size={11} />
-      </HeaderButton>
+      {!def.pinned && (
+        <HeaderButton title="Close panel (reopen from the PANELS menu)" onClick={close}>
+          <X size={11} />
+        </HeaderButton>
+      )}
     </div>
   );
 
