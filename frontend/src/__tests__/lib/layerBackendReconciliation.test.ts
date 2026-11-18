@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The operator check (#4, public visitors) makes its own fetch of /api/admin/session;
+// these tests exercise reconciliation as an operator, so answer it directly instead of
+// letting it consume the mocked layer fetches.
+vi.mock('@/lib/operatorAccess', () => ({
+  hasOperatorAccess: async () => true,
+  invalidateOperatorAccess: () => undefined,
+}));
+
 describe('layer backend reconciliation', () => {
   beforeEach(() => {
     vi.resetModules();
