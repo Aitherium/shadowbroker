@@ -6,6 +6,8 @@ module.exports = defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
+    // Repairs Node 22+'s method-less global localStorage (see the file).
+    setupFiles: ['./vitest.setup.js'],
     // Default test timeout: 15s (up from vitest's 5s default).
     //
     // We render real React component trees under jsdom in many tests, and
