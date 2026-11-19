@@ -675,6 +675,7 @@ function DashboardInner() {
               title="DATA LAYERS"
               defaultDock="left"
               order={0}
+              pinned
               role="primary"
               dockGrow
               minHeight={200}

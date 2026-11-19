@@ -47,6 +47,10 @@ export interface PanelDefinition {
   role: PanelRole;
   /** Starts closed (reopen from the PANELS menu) until the operator opens it. */
   defaultClosed: boolean;
+  /** Can never be closed or popped out; a stored closed/popped-out state is ignored.
+   *  The layer filter is the map's main control: a remembered close left operators
+   *  with no way to filter the map (2026-11-18). */
+  pinned: boolean;
 }
 
 export interface PanelState {
@@ -121,6 +125,7 @@ export function definePanel(
     minHeight: def.minHeight ?? DEFAULT_MIN_HEIGHT,
     role: def.role ?? 'tool',
     defaultClosed: def.defaultClosed ?? false,
+    pinned: def.pinned ?? false,
     defaultRect:
       def.defaultRect ??
       ((vp: Viewport) => {
@@ -196,8 +201,8 @@ export function resolvePanelState(layout: PanelLayout, def: PanelDefinition): Pa
     rect: stored.rect ?? null,
     dockHeight: stored.dockHeight ?? null,
     minimized: stored.minimized ?? false,
-    closed: stored.closed ?? def.defaultClosed ?? false,
-    poppedOut: stored.poppedOut ?? false,
+    closed: def.pinned ? false : stored.closed ?? def.defaultClosed ?? false,
+    poppedOut: def.pinned ? false : stored.poppedOut ?? false,
     z: stored.z ?? 0,
     autoHeight: stored.autoHeight ?? false,
     maximized: stored.maximized ?? false,

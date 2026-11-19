@@ -1,0 +1,8 @@
+{
+  "name": "shadowbroker-workspace",
+  "private": true,
+  "description": "Root test entry so tooling that runs `npm test` at the repo root (the Aitherium local-verify lane) reaches the frontend suite. The app itself lives in frontend/ and backend/.",
+  "scripts": {
+    "test": "npm --prefix frontend ci --no-audit --no-fund && npm --prefix frontend test"
+  }
+}
