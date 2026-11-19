@@ -101,3 +101,41 @@ def test_merge_telegram_posts_keeps_existing_and_adds_only_new():
     assert added == 1
     assert len(merged) == 2
     assert merged[0]["link"] == "https://t.me/osintdefender/222"
+
+
+NESTED_HTML = """
+<div class="tgme_widget_message_wrap js-widget_message_wrap"><div class="tgme_widget_message">
+  <div class="tgme_widget_message_bubble">
+    <div class="tgme_widget_message_text">Strike report from the night of 07.11.26.<div class="x"></div></div>
+    <div class="tgme_widget_message_footer"><div class="tgme_widget_message_info">
+      <span class="tgme_widget_message_meta"><a class="tgme_widget_message_date" href="https://t.me/war_monitor/48042"><time datetime="2026-11-07T02:09:03+00:00" class="time">02:09</time></a></span>
+    </div></div>
+  </div>
+</div></div>
+<div class="tgme_widget_message_wrap js-widget_message_wrap"><div class="tgme_widget_message">
+  <div class="tgme_widget_message_text">Second post text here.</div>
+  <a class="tgme_widget_message_date" href="https://t.me/war_monitor/48043"><time datetime="2026-11-08T03:00:00+00:00"></time></a>
+</div></div>
+"""
+
+
+def test_nested_divs_keep_the_post_date_not_the_fetch_time():
+    # Measured 2026-11-18 on t.me/s/war_monitor: the block regex closed before the
+    # <time> footer, so every post got published = now and a 07 Nov report was
+    # served as current.
+    posts = telegram_osint.parse_telegram_channel_html(NESTED_HTML, "war_monitor")
+    assert [p["published"] for p in posts] == [
+        "2026-11-07T02:09:03+00:00", "2026-11-08T03:00:00+00:00"]
+    assert [p["link"] for p in posts] == [
+        "https://t.me/war_monitor/48042", "https://t.me/war_monitor/48043"]
+
+
+def test_merge_drops_undated_rows_stored_under_the_channel_url():
+    existing = [
+        {"id": "bad", "link": "https://t.me/war_monitor",
+         "published": "2026-11-18T13:42:50+00:00"},
+        {"id": "ok", "link": "https://t.me/war_monitor/1",
+         "published": "2026-11-07T02:09:03+00:00"},
+    ]
+    merged, added = telegram_osint._merge_telegram_posts(existing, [])
+    assert [p["id"] for p in merged] == ["ok"] and added == 0
