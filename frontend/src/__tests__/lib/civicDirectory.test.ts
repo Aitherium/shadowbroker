@@ -9,6 +9,7 @@ import {
   lookupCountyFips,
   matchUnitsToJurisdictions,
   officialGroup,
+  pickClickableMapFeature,
   resolveCivicProxyRequest,
   sanitizeCivicBoundaries,
   statesForPoint,
@@ -208,5 +209,32 @@ describe('map click → civic lookup', () => {
     expect(civicLookupFromMapClick(at, [], false)).toBeNull();
     expect(civicLookupFromMapClick(at, [], true)).toEqual(at);
     expect(civicLookupFromMapClick({ lat: 48.85, lng: 2.35 }, [], true)).toBeNull();
+  });
+});
+
+describe('pickClickableMapFeature', () => {
+  const county = { layer: { id: 'civic-boundary-civic_counties-fill' }, properties: { type: 'civic_district', id: 'civic_district-county-1' } };
+  const cd = { layer: { id: 'civic-boundary-civic_congressional-fill' }, properties: { type: 'civic_district', id: 'civic_district-cd-1' } };
+  const sarAoi = { layer: { id: 'sar-aois-fill' }, properties: { type: 'sar_aoi', id: 'aoi-1' } };
+  const alpr = { layer: { id: 'civic-alpr-layer' }, properties: { type: 'civic_alpr', id: 'civic_alpr-0' } };
+  const alprCluster = { layer: { id: 'civic-alpr-clusters' }, properties: { cluster: true, point_count: 14 } };
+
+  it('skips civic boundary fills stacked above an ALPR dot', () => {
+    expect(pickClickableMapFeature([county, cd, alpr])).toBe(alpr);
+  });
+
+  it('skips civic boundary fills stacked above an ALPR cluster', () => {
+    expect(pickClickableMapFeature([county, alprCluster])).toBe(alprCluster);
+  });
+
+  it('prefers entities over sar-aois-fill while still ignoring civic boundaries', () => {
+    expect(pickClickableMapFeature([county, sarAoi, alpr])).toBe(alpr);
+    expect(pickClickableMapFeature([county, sarAoi])).toBe(sarAoi);
+  });
+
+  it('never returns a civic boundary fill as a selectable entity', () => {
+    expect(pickClickableMapFeature([county, cd])).toBeNull();
+    expect(pickClickableMapFeature([])).toBeNull();
+    expect(pickClickableMapFeature(undefined)).toBeNull();
   });
 });

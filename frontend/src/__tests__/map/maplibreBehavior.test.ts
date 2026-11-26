@@ -101,6 +101,28 @@ describe('MaplibreViewer behavior — Telegram visibility fallback', () => {
   });
 });
 
+describe('MaplibreViewer behavior — ALPR clickability with default civic boundaries', () => {
+  const viewer = fs.readFileSync(path.join(COMP_DIR, 'MaplibreViewer.tsx'), 'utf-8');
+  const boundaries = fs.readFileSync(path.join(COMP_DIR, 'map/CivicBoundaryLayers.tsx'), 'utf-8');
+
+  it('mounts CivicBoundaryLayers before civic-alpr-source so boundary fills stay below dots', () => {
+    const boundariesIdx = viewer.indexOf('<CivicBoundaryLayers');
+    const alprIdx = viewer.indexOf('id="civic-alpr-source"');
+    expect(boundariesIdx).toBeGreaterThan(-1);
+    expect(alprIdx).toBeGreaterThan(boundariesIdx);
+  });
+
+  it('always mounts boundary sources with EMPTY_FC instead of conditionally appending them on top', () => {
+    expect(boundaries).toContain('EMPTY_FC');
+    expect(boundaries).toContain('state.layers[k] ?? EMPTY_FC');
+  });
+
+  it('filters civic boundary fills out of entity selection via pickClickableMapFeature', () => {
+    expect(viewer).toContain('pickClickableMapFeature(e.features)');
+    expect(viewer).toContain("'civic-alpr-hit'");
+  });
+});
+
 // ─── Popup subscription isolation ─────────────────────────────────────────
 
 describe('MaplibreViewer behavior — popup components have no keyed subscriptions', () => {
