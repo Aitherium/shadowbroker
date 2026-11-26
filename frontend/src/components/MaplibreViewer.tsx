@@ -198,7 +198,11 @@ import TwinTownLayers, {
 } from '@/components/map/TwinTownLayers';
 import { useCivicBoundaries } from '@/components/map/hooks/useCivicBoundaries';
 import CivicBoundaryLayers, { civicBoundaryInteractiveIds } from '@/components/map/CivicBoundaryLayers';
-import { civicLookupFromMapClick, dispatchCivicLookup } from '@/lib/civicDirectory';
+import {
+  civicLookupFromMapClick,
+  dispatchCivicLookup,
+  pickClickableMapFeature,
+} from '@/lib/civicDirectory';
 import { CctvFullscreenModal } from '@/components/MaplibreViewer/CctvFullscreenModal';
 import { SatellitePopup } from '@/components/MaplibreViewer/popups/SatellitePopup';
 import { ShipPopup } from '@/components/MaplibreViewer/popups/ShipPopup';
@@ -1811,6 +1815,7 @@ const MaplibreViewer = ({
     civicLayers.alpr && 'civic-alpr-clusters',
     civicLayers.alpr && 'civic-alpr-cluster-count',
     civicLayers.alpr && 'civic-alpr-layer',
+    civicLayers.alpr && 'civic-alpr-hit',
     civicLayers.datacenters && 'civic-datacenters-clusters',
     civicLayers.datacenters && 'civic-datacenters-cluster-count',
     civicLayers.datacenters && 'civic-datacenters-layer',
@@ -2004,7 +2009,7 @@ const MaplibreViewer = ({
           }
           // Pin placement mode
           if (pinPlacementMode) {
-            const clickedFeature = e.features?.[0];
+            const clickedFeature = pickClickableMapFeature(e.features);
             const clickedProps = clickedFeature?.properties || {};
             const isEntity = clickedFeature && clickedProps.type && clickedProps.id && !clickedProps.cluster;
             setPendingPin({
@@ -2037,17 +2042,19 @@ const MaplibreViewer = ({
               return;
             }
           }
-          if (selectedEntity) {
+          const feature = pickClickableMapFeature(e.features);
+          const switchingCivicPoint =
+            !!selectedEntity &&
+            (selectedEntity.type === 'civic_alpr' ||
+              selectedEntity.type === 'civic_datacenter' ||
+              selectedEntity.type === 'civic_project') &&
+            !!feature &&
+            !feature.properties?.cluster &&
+            (feature.properties?.type !== selectedEntity.type ||
+              feature.properties?.id !== selectedEntity.id);
+          if (selectedEntity && !switchingCivicPoint) {
             onEntityClick?.(null);
-          } else if (e.features && e.features.length > 0) {
-            // SAR AOI fill spans large polygons (often hundreds of km wide)
-            // and renders above entity layers. If an entity (flight, ship,
-            // SDR receiver, etc.) is also under the cursor, prefer it — the
-            // AOI should only win when the user clicks empty space inside it.
-            const nonAoiFeature = e.features.find(
-              (f) => f.layer?.id !== 'sar-aois-fill',
-            );
-            const feature = nonAoiFeature ?? e.features[0];
+          } else if (feature) {
             const props = feature.properties || {};
 
             // If the clicked feature is a cluster, zoom into it instead of selecting an entity
@@ -4039,6 +4046,16 @@ const MaplibreViewer = ({
               'text-allow-overlap': true,
             }}
             paint={{ 'text-color': '#ffedd5' }}
+          />
+          <Layer
+            id="civic-alpr-hit"
+            type="circle"
+            filter={['!', ['has', 'point_count']]}
+            paint={{
+              'circle-color': '#fb923c',
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 9, 13, 12],
+              'circle-opacity': 0,
+            }}
           />
           <Layer
             id="civic-alpr-layer"

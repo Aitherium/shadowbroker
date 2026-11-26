@@ -669,6 +669,22 @@ export function civicLookupFromMapClick(
   };
 }
 
+/**
+ * Pick the entity feature to select from a map click, ignoring civic district
+ * boundary fills (which are handled exclusively by `civicLookupFromMapClick`
+ * and have no entity popup) and preferring point/symbol features over the
+ * full-area `sar-aois-fill` polygon.
+ */
+export function pickClickableMapFeature<T extends ClickFeature>(
+  features: readonly T[] | undefined,
+): T | null {
+  const clickable = (features ?? []).filter(
+    (f) => !(f.layer?.id || '').startsWith(CIVIC_BOUNDARY_LAYER_PREFIX),
+  );
+  if (clickable.length === 0) return null;
+  return clickable.find((f) => f.layer?.id !== 'sar-aois-fill') ?? clickable[0];
+}
+
 export function dispatchCivicLookup(req: CivicLookupRequest): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<CivicLookupRequest>(CIVIC_LOOKUP_EVENT, { detail: req }));

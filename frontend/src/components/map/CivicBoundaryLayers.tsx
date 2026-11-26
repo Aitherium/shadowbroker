@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { Layer, Source } from 'react-map-gl/maplibre';
+import { EMPTY_FC } from '@/components/map/mapConstants';
 import {
   CIVIC_BOUNDARY_STYLE,
   CIVIC_BOUNDARY_TOGGLE_KEYS,
@@ -58,13 +59,17 @@ function BoundarySource({ toggle, data }: { toggle: CivicBoundaryToggle; data: G
   );
 }
 
+/**
+ * Always mount boundary sources with EMPTY_FC so their fills stay anchored in
+ * JSX order beneath ALPR/entity layers instead of being appended to the top of
+ * the MapLibre style stack when state GeoJSON finishes loading.
+ */
 export default function CivicBoundaryLayers({ state }: { state: CivicBoundariesState }) {
   return (
     <>
-      {CIVIC_BOUNDARY_TOGGLE_KEYS.map((k) => {
-        const fc = state.layers[k];
-        return fc && fc.features.length ? <BoundarySource key={k} toggle={k} data={fc} /> : null;
-      })}
+      {CIVIC_BOUNDARY_TOGGLE_KEYS.map((k) => (
+        <BoundarySource key={k} toggle={k} data={state.layers[k] ?? EMPTY_FC} />
+      ))}
     </>
   );
 }
